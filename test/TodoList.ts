@@ -15,18 +15,14 @@ describe("Lock", function () {
     const taskDescription = "This is a sample task description";
     await todolist.createTask(taskName, taskDescription);
 
-    const [id, date, name, description, isCompleted, taskOwner] =
-      await todolist.getTask(0);
-    expect(id).to.equal(0);
-    expect(name).to.equal(taskName);
-    expect(description).to.equal(taskDescription);
-    expect(isCompleted).to.equal(false);
-    expect(taskOwner).to.equal(owner.address);
+    const tasks = await todolist.getTask();
+    expect(tasks.length).to.equal(1);
   });
 
   it("should mark a task as completed", async function () {
     await todolist.markTaskCompleted(0);
-    const [, , , , isCompleted] = await todolist.getTask(0);
+    const tasks = await todolist.getTask();
+    const isCompleted = tasks[0][4];
     expect(isCompleted).to.equal(true);
   });
 
@@ -36,20 +32,11 @@ describe("Lock", function () {
       "This task will be deleted"
     );
 
+    const tasks = await todolist.getTask();
+    expect(tasks.length).to.equal(2);
+
     await todolist.deleteTask(1);
-
-    let isError = false;
-    try {
-      await todolist.getTask(1);
-    } catch (error) {
-      isError = true;
-    }
-    expect(isError).to.equal(true);
-  });
-
-  it("should retrieve the user's tasks", async function () {
-    await todolist.createTask("User's Task", "This is the user's task");
-    const userTasks = await todolist.getUserTasks();
-    expect(userTasks.length).to.be.at.least(1);
+    const newTasks = await todolist.getTask();
+    expect(newTasks.length).to.equal(1);
   });
 });

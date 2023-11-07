@@ -9,24 +9,15 @@ contract TodoList {
         string name;
         string description;
         bool isCompleted;
+        bool isDeleted;
         address owner;
     }
 
     // 所有任务列表
-    Task[] public tasks;
-
-    // 用户任务列表
-    mapping(address => uint[]) private userTasks;
+    Task[] private tasks;
 
     // 任务创建事件
-    event TaskCreated(
-        uint id,
-        uint date,
-        string name,
-        string description,
-        bool isCompleted,
-        address owner
-    );
+    event TaskCreated(uint id, address owner);
 
     // 任务完成事件
     event TaskCompleted(uint id, address owner);
@@ -40,44 +31,43 @@ contract TodoList {
         uint taskId = tasks.length;
         // 创建新任务并加到任务列表
         tasks.push(
-            Task(taskId, block.timestamp, name, description, false, msg.sender)
+            Task(
+                taskId,
+                block.timestamp,
+                name,
+                description,
+                false,
+                false,
+                msg.sender
+            )
         );
-        // 把任务ID添加到用户任务列表
-        userTasks[msg.sender].push(taskId);
         // 执行任务创建事件
-        emit TaskCreated(
-            taskId,
-            block.timestamp,
-            name,
-            description,
-            false,
-            msg.sender
-        );
+        emit TaskCreated(taskId, msg.sender);
     }
 
-    // 获取任务
-    function getTask(
-        uint id
-    )
-        public
-        view
-        returns (uint, uint, string memory, string memory, bool, address)
-    {
-        require(id < tasks.length, "Task ID does not exist");
-        Task storage task = tasks[id];
-        return (
-            task.id,
-            task.date,
-            task.name,
-            task.description,
-            task.isCompleted,
-            task.owner
-        );
+    // 获取用户所有任务
+    function getTask() public view returns (Task[] memory) {
+        Task[] memory temporary = new Task[](tasks.length);
+        uint counter = 0;
+        for (uint i = 0; i < tasks.length; i++) {
+            if (tasks[i].owner == msg.sender && tasks[i].isDeleted == false) {
+                temporary[counter] = tasks[i];
+                counter++;
+            }
+        }
+        Task[] memory result = new Task[](counter);
+        for (uint i = 0; i < counter; i++) {
+            result[i] = temporary[i];
+        }
+        return result;
     }
 
     // 标注任务已完成
     function markTaskCompleted(uint id) public {
-        require(id < tasks.length, "Task ID does not exist");
+        require(
+            id < tasks.length || tasks[id].isDeleted == true,
+            "Task ID does not exist"
+        );
         Task storage task = tasks[id];
         require(task.owner == msg.sender, "Only Owner can complete this task");
         require(!task.isCompleted, "Task is already completed");
@@ -87,21 +77,13 @@ contract TodoList {
 
     // 删除任务
     function deleteTask(uint id) public {
-        require(id < tasks.length, "Task ID does not exist");
+        require(
+            id < tasks.length || tasks[id].isDeleted == true,
+            "Task ID does not exist"
+        );
         Task storage task = tasks[id];
         require(task.owner == msg.sender, "Only Owner can complete this task");
-        uint lastIndex = tasks.length - 1;
-        if (id != lastIndex) {
-            Task storage lastTask = tasks[lastIndex];
-            tasks[id] = lastTask;
-            userTasks[msg.sender][id] = lastIndex;
-        }
-        tasks.pop();
-        userTasks[msg.sender].pop();
+        tasks[id].isDeleted = true;
         emit TaskDeleted(id, msg.sender);
-    }
-
-    function getUserTasks() public view returns (uint[] memory) {
-        return userTasks[msg.sender];
     }
 }
